@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#153b2d">
+  <title>Яблучний кошик — гра</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #102d24;
+      --panel: rgba(255, 255, 255, .09);
+      --panel-border: rgba(255,255,255,.14);
+      --cream: #fff8e8;
+      --muted: #c6d8c9;
+      --green: #a6d98b;
+      --gold: #ffd978;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh;
+      padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+      color: var(--cream);
+      background:
+        radial-gradient(ellipse at 50% -15%, rgba(131,181,111,.26), transparent 54%),
+        linear-gradient(160deg, #1c4935 0%, #102d24 70%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .app { width: min(100%, 960px); }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 auto 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-icon {
+      display: grid; place-items: center;
+      width: 46px; height: 46px; flex: 0 0 46px;
+      border-radius: 15px;
+      background: linear-gradient(145deg, #d9f0b8, #8ec66e);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 7px 18px rgba(0,0,0,.2);
+      font-size: 27px;
+    }
+    h1 { margin: 0; font-size: clamp(19px, 3vw, 27px); line-height: 1.12; letter-spacing: -.5px; }
+    .subtitle { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .stats { display: flex; gap: 9px; }
+    .stat {
+      min-width: 98px; padding: 9px 14px 8px;
+      border: 1px solid var(--panel-border); border-radius: 14px;
+      background: var(--panel); text-align: center;
+      box-shadow: 0 7px 18px rgba(0,0,0,.12);
+    }
+    .stat-label { display: block; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: 1.2px; text-transform: uppercase; }
+    .stat-value { display: block; margin-top: 1px; font-size: 25px; font-weight: 850; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .stat.timer .stat-value { color: var(--gold); }
+    .game-shell {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 22px;
+      background: #b9d98d;
+      box-shadow: 0 18px 48px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: clamp(360px, 62vh, 590px);
+      touch-action: none;
+      cursor: crosshair;
+      outline: none;
+    }
+    .game-overlay {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      padding: 20px;
+      background: rgba(10, 31, 23, .58);
+      backdrop-filter: blur(5px);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .2s ease, visibility .2s ease;
+    }
+    .game-overlay.visible { opacity: 1; visibility: visible; pointer-events: auto; }
+    .result-card {
+      width: min(100%, 360px);
+      padding: 27px 24px 24px;
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 22px;
+      background: linear-gradient(155deg, #fff9e9, #eaf3d9);
+      color: #203b2b;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,.32);
+    }
+    .result-emoji { font-size: 45px; line-height: 1; }
+    .result-card h2 { margin: 12px 0 5px; font-size: 27px; line-height: 1.1; }
+    .result-card p { margin: 0 0 18px; color: #526653; font-size: 14px; }
+    .final-score { margin: 5px 0 20px; font-size: 15px; color: #48604a; }
+    .final-score strong { display: block; margin-top: 3px; color: #1d3b29; font-size: 46px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .start-button {
+      width: 100%; min-height: 50px; padding: 12px 18px;
+      border: 0; border-radius: 14px;
+      color: #183522; background: linear-gradient(180deg, #c4eb9e, #96d36d);
+      font: inherit; font-size: 16px; font-weight: 850;
+      cursor: pointer; box-shadow: 0 5px 0 #679c4b, 0 9px 18px rgba(55,91,46,.2);
+      transition: transform .08s ease, filter .15s ease;
+    }
+    .start-button:hover { filter: brightness(1.04); }
+    .start-button:active { transform: translateY(3px); box-shadow: 0 2px 0 #679c4b; }
+    .controls-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; padding: 12px 3px 0;
+    }
+    .instructions { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .instructions strong { color: #f4f8e9; }
+    .touch-controls { display: flex; gap: 9px; flex: 0 0 auto; }
+    .touch-button {
+      width: 58px; height: 48px;
+      border: 1px solid rgba(255,255,255,.2); border-radius: 13px;
+      background: rgba(255,255,255,.12); color: white;
+      font-size: 23px; font-weight: 800;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+      cursor: pointer;
+    }
+    .touch-button:active, .touch-button.pressed { background: rgba(190,231,151,.32); border-color: rgba(205,240,169,.6); }
+    .legend { display: flex; justify-content: center; gap: 22px; padding: 12px 0 0; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .dot.good { background: #e94b37; box-shadow: 0 0 0 3px rgba(233,75,55,.17); }
+    .dot.bad { background: #79513b; box-shadow: 0 0 0 3px rgba(121,81,59,.2); }
+    @media (min-width: 700px) {
+      .touch-controls { opacity: .72; }
+      .touch-button { width: 50px; height: 40px; font-size: 19px; }
+    }
+    @media (max-width: 540px) {
+      body { padding-left: 10px; padding-right: 10px; }
+      .topbar { align-items: flex-start; }
+      .brand { gap: 8px; }
+      .brand-icon { width: 39px; height: 39px; flex-basis: 39px; border-radius: 12px; font-size: 23px; }
+      .subtitle { font-size: 10px; }
+      .stats { gap: 6px; }
+      .stat { min-width: 68px; padding: 8px 7px 7px; border-radius: 12px; }
+      .stat-label { font-size: 9px; letter-spacing: .8px; }
+      .stat-value { font-size: 21px; }
+      .game-shell { border-radius: 17px; }
+      #gameCanvas { height: min(61vh, 520px); min-height: 350px; }
+      .controls-row { align-items: center; padding-top: 10px; }
+      .instructions { max-width: 56%; font-size: 10px; }
+      .touch-button { width: 55px; height: 48px; }
+      .legend { gap: 15px; font-size: 11px; padding-top: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">🍎</div>
+        <div>
+          <h1>Яблучний кошик</h1>
+          <p class="subtitle">Збирай свіжі яблука — оминай гнилі!</p>
+        </div>
+      </div>
+      <div class="stats" aria-live="polite">
+        <div class="stat">
+          <span class="stat-label">Рахунок</span>
+          <span class="stat-value" id="score">0</span>
+        </div>
+        <div class="stat timer">
+          <span class="stat-label">Час</span>
+          <span class="stat-value" id="time">60</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="game-shell" aria-label="Ігрове поле">
+      <canvas id="gameCanvas" tabindex="0" aria-label="Лови яблука кошиком. Рухай мишкою, стрілками або пальцем."></canvas>
+      <div class="game-overlay" id="gameOverlay" aria-hidden="true">
+        <div class="result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+          <div class="result-emoji" aria-hidden="true">🧺</div>
+          <h2 id="resultTitle">Час вичерпано!</h2>
+          <p>Цей раунд завершено.</p>
+          <div class="final-score">Твій результат<strong id="finalScore">0</strong></div>
+          <button class="start-button" id="restartButton" type="button">Грати ще раз</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="controls-row">
+      <div class="instructions">
+        <strong>Керування:</strong> мишкою — переміщуй кошик; клавіатурою — ← →; на телефоні — торкайся й перетягуй поле або використовуй кнопки.
+      </div>
+      <div class="touch-controls" aria-label="Екранне керування">
+        <button class="touch-button" id="leftButton" type="button" aria-label="Рух ліворуч">◀</button>
+        <button class="touch-button" id="rightButton" type="button" aria-label="Рух праворуч">▶</button>
+      </div>
+    </div>
+    <div class="legend" aria-label="Правила нарахування очок">
+      <span><i class="dot good"></i> Свіже яблуко: +1</span>
+      <span><i class="dot bad"></i> Гниле яблуко: −1</span>
+    </div>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreNode = document.getElementById('score');
+    const timeNode = document.getElementById('time');
+    const overlay = document.getElementById('gameOverlay');
+    const finalScoreNode = document.getElementById('finalScore');
+    const restartButton = document.getElementById('restartButton');
+    const leftButton = document.getElementById('leftButton');
+    const rightButton = document.getElementById('rightButton');
+
+    const GAME_SECONDS = 60;
+    const BASKET_WIDTH = 112;
+    const BASKET_HEIGHT = 53;
+    const KEY_SPEED = 590;
+
+    let width = 0;
+    let height = 0;
+    let basketX = 0;
+    let basketY = 0;
+    let score = 0;
+    let apples = [];
+    let running = false;
+    let endAt = 0;
+    let lastFrame = 0;
+    let lastSpawn = 0;
+    let animationId = 0;
+    let pointerActive = false;
+    let pointerTargetX = null;
+    const keys = { left: false, right: false };
+    const heldButtons = { left: false, right: false };
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const oldWidth = width || rect.width;
+      width = Math.max(280, rect.width);
+      height = Math.max(300, rect.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!basketX) basketX = width / 2;
+      else basketX = clamp(basketX * (width / oldWidth), BASKET_WIDTH / 2 + 5, width - BASKET_WIDTH / 2 - 5);
+      basketY = height - BASKET_HEIGHT - 18;
+      draw();
+    }
+
+    function setScore(value) {
+      score = value;
+      scoreNode.textContent = String(score);
+    }
+
+    function startGame() {
+      cancelAnimationFrame(animationId);
+      setScore(0);
+      apples = [];
+      basketX = width / 2;
+      basketY = height - BASKET_HEIGHT - 18;
+      pointerTargetX = null;
+      pointerActive = false;
+      keys.left = keys.right = false;
+      heldButtons.left = heldButtons.right = false;
+      leftButton.classList.remove('pressed');
+      rightButton.classList.remove('pressed');
+      timeNode.textContent = String(GAME_SECONDS);
+      overlay.classList.remove('visible');
+      overlay.setAttribute('aria-hidden', 'true');
+      running = true;
+      const now = performance.now();
+      endAt = now + GAME_SECONDS * 1000;
+      lastFrame = now;
+      lastSpawn = now - 450;
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function finishGame() {
+      if (!running) return;
+      running = false;
+      timeNode.textContent = '0';
+      finalScoreNode.textContent = String(score);
+      overlay.classList.add('visible');
+      overlay.setAttribute('aria-hidden', 'false');
+      draw();
+      restartButton.focus({ preventScroll: true });
+    }
+
+    function spawnApple(now) {
+      const radius = 15 + Math.random() * 5;
+      const rotten = Math.random() < 0.28;
+      apples.push({
+        x: radius + 12 + Math.random() * Math.max(1, width - radius * 2 - 24),
+        y: -radius - 8,
+        r: radius,
+        speed: 205 + Math.random() * 85,
+        rotten,
+        rotation: Math.random() * Math.PI * 2,
+        spin: (Math.random() - .5) * 1.8
+      });
+      lastSpawn = now;
+    }
+
+    function update(dt, now) {
+      const remaining = Math.max(0, (endAt - now) / 1000);
+      timeNode.textContent = String(Math.ceil(remaining));
+      if (remaining <= 0) { finishGame(); return; }
+
+      if (pointerTargetX !== null) {
+        const difference = pointerTargetX - basketX;
+        const maxMove = 1050 * dt;
+        basketX += clamp(difference, -maxMove, maxMove);
+        if (Math.abs(difference) < 2) pointerTargetX = null;
+      } else {
+        const direction = (keys.right || heldButtons.right ? 1 : 0) - (keys.left || heldButtons.left ? 1 : 0);
+        basketX += direction * KEY_SPEED * dt;
+      }
+      basketX = clamp(basketX, BASKET_WIDTH / 2 + 5, width - BASKET_WIDTH / 2 - 5);
+
+      const spawnDelay = Math.max(560, 920 - (GAME_SECONDS - remaining) * 3.2);
+      if (now - lastSpawn >= spawnDelay) spawnApple(now);
+
+      const basketTop = basketY + 11;
+      const basketLeft = basketX - BASKET_WIDTH / 2 + 8;
+      const basketRight = basketX + BASKET_WIDTH / 2 - 8;
+      for (let i = apples.length - 1; i >= 0; i--) {
+        const apple = apples[i];
+        apple.y += apple.speed * dt;
+        apple.rotation += apple.spin * dt;
+
+        const horizontalHit = apple.x + apple.r * .72 > basketLeft && apple.x - apple.r * .72 < basketRight;
+        const verticalHit = apple.y + apple.r * .72 >= basketTop && apple.y - apple.r * .5 <= basketY + BASKET_HEIGHT;
+        if (horizontalHit && verticalHit) {
+          setScore(score + (apple.rotten ? -1 : 1));
+          apples.splice(i, 1);
+        } else if (apple.y - apple.r > height + 5) {
+          // Пропущені яблука не змінюють рахунок.
+          apples.splice(i, 1);
+        }
+      }
+    }
+
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, '#c8e8a5');
+      sky.addColorStop(.58, '#d9edb3');
+      sky.addColorStop(1, '#89bd68');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, width, height);
+
+      // М'яке сонце та далекі пагорби.
+      ctx.fillStyle = 'rgba(255,246,188,.72)';
+      ctx.beginPath(); ctx.arc(width * .82, height * .16, Math.min(38, width * .08), 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#a7cf83';
+      ctx.beginPath(); ctx.moveTo(0, height * .58);
+      ctx.quadraticCurveTo(width * .24, height * .42, width * .5, height * .57);
+      ctx.quadraticCurveTo(width * .77, height * .42, width, height * .56);
+      ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#83b967';
+      ctx.beginPath(); ctx.moveTo(0, height * .72);
+      ctx.quadraticCurveTo(width * .3, height * .58, width * .57, height * .73);
+      ctx.quadraticCurveTo(width * .78, height * .61, width, height * .69);
+      ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+
+      // Дерева з обох боків, щоб залишати центр вільним для гри.
+      for (const side of [0, 1]) {
+        const x = side ? width - 22 : 22;
+        const baseY = height * .67;
+        ctx.fillStyle = '#8b5a36';
+        ctx.fillRect(x - 5, baseY - 33, 10, 54);
+        for (const [dx, dy, r] of [[0,-48,25],[-15,-36,18],[15,-37,19],[0,-65,17]]) {
+          ctx.fillStyle = '#57934e';
+          ctx.beginPath(); ctx.arc(x + dx, baseY + dy, r, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(211,239,154,.22)';
+          ctx.beginPath(); ctx.arc(x + dx - 5, baseY + dy - 7, r * .45, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      // Трава внизу.
+      ctx.fillStyle = '#659d4d';
+      ctx.fillRect(0, height - 17, width, 17);
+      ctx.fillStyle = 'rgba(236,249,188,.4)';
+      for (let x = 8; x < width; x += 23) {
+        ctx.beginPath(); ctx.moveTo(x, height - 16); ctx.lineTo(x + 3, height - 23 - (x % 4)); ctx.lineTo(x + 6, height - 16); ctx.fill();
+      }
+    }
+
+    function drawApple(apple) {
+      ctx.save();
+      ctx.translate(apple.x, apple.y);
+      ctx.rotate(apple.rotation);
+      const r = apple.r;
+      // Тінь.
+      ctx.fillStyle = 'rgba(44,75,35,.18)';
+      ctx.beginPath(); ctx.ellipse(2, r * .88, r * .8, r * .22, 0, 0, Math.PI * 2); ctx.fill();
+      // Тіло яблука.
+      const gradient = ctx.createRadialGradient(-r*.34, -r*.4, 2, 0, 0, r*1.25);
+      if (apple.rotten) {
+        gradient.addColorStop(0, '#9b7651'); gradient.addColorStop(.6, '#745039'); gradient.addColorStop(1, '#49382c');
+      } else {
+        gradient.addColorStop(0, '#ff9272'); gradient.addColorStop(.52, '#ed4334'); gradient.addColorStop(1, '#a91f26');
+      }
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(0, -r*.58);
+      ctx.bezierCurveTo(-r*.15, -r*1.02, -r*.93, -r*.76, -r*.94, -r*.02);
+      ctx.bezierCurveTo(-r*1.04, r*.74, -r*.35, r*1.02, 0, r*.82);
+      ctx.bezierCurveTo(r*.36, r*1.03, r*1.02, r*.69, r*.94, -r*.02);
+      ctx.bezierCurveTo(r*.88, -r*.75, r*.17, -r*1.02, 0, -r*.58);
+      ctx.fill();
+      if (apple.rotten) {
+        ctx.fillStyle = 'rgba(38,30,22,.48)';
+        for (const [x,y,s] of [[-.45,-.12,.17],[.38,.2,.14],[-.1,.45,.12],[.45,-.4,.09]]) {
+          ctx.beginPath(); ctx.arc(x*r, y*r, s*r, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(54,37,25,.65)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(-r*.22, r*.08, r*.23, .15, 2.2); ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(255,224,174,.52)';
+        ctx.beginPath(); ctx.ellipse(-r*.43, -r*.28, r*.13, r*.25, -.45, 0, Math.PI*2); ctx.fill();
+      }
+      // Хвостик і листочок.
+      ctx.strokeStyle = '#64452b'; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -r*.62); ctx.lineTo(r*.08, -r*.98); ctx.stroke();
+      ctx.fillStyle = '#4d883e';
+      ctx.beginPath(); ctx.ellipse(r*.25, -r*.88, r*.25, r*.11, -.35, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBasket() {
+      const x = basketX;
+      const y = basketY;
+      ctx.save();
+      ctx.translate(x, y);
+      // Тінь під кошиком.
+      ctx.fillStyle = 'rgba(41,73,35,.22)';
+      ctx.beginPath(); ctx.ellipse(0, BASKET_HEIGHT + 5, BASKET_WIDTH*.48, 8, 0, 0, Math.PI*2); ctx.fill();
+      // Ручка.
+      ctx.strokeStyle = '#8a512e'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, 17, 37, Math.PI, 0); ctx.stroke();
+      ctx.strokeStyle = '#d49a53'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 17, 37, Math.PI, 0); ctx.stroke();
+      // Корпус плетеного кошика.
+      const basketGrad = ctx.createLinearGradient(0, 10, 0, BASKET_HEIGHT);
+      basketGrad.addColorStop(0, '#d89b50'); basketGrad.addColorStop(1, '#9a5d2e');
+      ctx.fillStyle = basketGrad;
+      ctx.beginPath(); ctx.moveTo(-BASKET_WIDTH/2, 8); ctx.lineTo(BASKET_WIDTH/2, 8);
+      ctx.lineTo(BASKET_WIDTH/2 - 12, BASKET_HEIGHT); ctx.quadraticCurveTo(0, BASKET_HEIGHT+8, -BASKET_WIDTH/2+12, BASKET_HEIGHT); ctx.closePath(); ctx.fill();
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(-BASKET_WIDTH/2, 8); ctx.lineTo(BASKET_WIDTH/2, 8);
+      ctx.lineTo(BASKET_WIDTH/2 - 12, BASKET_HEIGHT); ctx.quadraticCurveTo(0, BASKET_HEIGHT+8, -BASKET_WIDTH/2+12, BASKET_HEIGHT); ctx.closePath(); ctx.clip();
+      ctx.strokeStyle = 'rgba(255,215,145,.75)'; ctx.lineWidth = 4;
+      for (let yy = 18; yy < BASKET_HEIGHT; yy += 11) { ctx.beginPath(); ctx.moveTo(-60, yy); ctx.lineTo(60, yy); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(104,58,29,.48)'; ctx.lineWidth = 2;
+      for (let xx = -49; xx < 55; xx += 13) { ctx.beginPath(); ctx.moveTo(xx, 7); ctx.lineTo(xx+5, BASKET_HEIGHT); ctx.stroke(); }
+      ctx.restore();
+      // Верхній обід.
+      ctx.strokeStyle = '#794521'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(-BASKET_WIDTH/2-2, 9); ctx.quadraticCurveTo(0, 15, BASKET_WIDTH/2+2, 9); ctx.stroke();
+      ctx.strokeStyle = '#e6b66d'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-BASKET_WIDTH/2, 6); ctx.quadraticCurveTo(0, 12, BASKET_WIDTH/2, 6); ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw() {
+      if (!ctx || !width || !height) return;
+      drawBackground();
+      for (const apple of apples) drawApple(apple);
+      drawBasket();
+    }
+
+    function loop(now) {
+      if (!running) return;
+      const dt = Math.min(.035, Math.max(0, (now - lastFrame) / 1000));
+      lastFrame = now;
+      update(dt, now);
+      draw();
+      if (running) animationId = requestAnimationFrame(loop);
+    }
+
+    function pointerX(event) {
+      const rect = canvas.getBoundingClientRect();
+      return clamp(event.clientX - rect.left, BASKET_WIDTH/2 + 5, width - BASKET_WIDTH/2 - 5);
+    }
+
+    canvas.addEventListener('pointerdown', event => {
+      if (!running) return;
+      pointerActive = true;
+      pointerTargetX = pointerX(event);
+      canvas.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (!running) return;
+      // На ПК рух миші керує кошиком без необхідності затискати кнопку;
+      // на сенсорному екрані рух працює після дотику до поля.
+      if (event.pointerType === 'mouse' || pointerActive) pointerTargetX = pointerX(event);
+    });
+    const stopPointer = () => { pointerActive = false; };
+    canvas.addEventListener('pointerup', stopPointer);
+    canvas.addEventListener('pointercancel', stopPointer);
+    canvas.addEventListener('lostpointercapture', stopPointer);
+
+    window.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') event.preventDefault();
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') { keys.left = true; pointerTargetX = null; }
+      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') { keys.right = true; pointerTargetX = null; }
+    }, { passive: false });
+    window.addEventListener('keyup', event => {
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') keys.left = false;
+      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') keys.right = false;
+    });
+    window.addEventListener('blur', () => { keys.left = keys.right = false; heldButtons.left = heldButtons.right = false; });
+
+    function bindHoldButton(button, direction) {
+      const down = event => {
+        event.preventDefault();
+        heldButtons[direction] = true;
+        pointerTargetX = null;
+        button.classList.add('pressed');
+        button.setPointerCapture?.(event.pointerId);
+      };
+      const up = () => { heldButtons[direction] = false; button.classList.remove('pressed'); };
+      button.addEventListener('pointerdown', down);
+      button.addEventListener('pointerup', up);
+      button.addEventListener('pointercancel', up);
+      button.addEventListener('lostpointercapture', up);
+      button.addEventListener('contextmenu', event => event.preventDefault());
+    }
+    bindHoldButton(leftButton, 'left');
+    bindHoldButton(rightButton, 'right');
+
+    restartButton.addEventListener('click', startGame);
+    window.addEventListener('resize', resizeCanvas);
+
+    // Перший раунд запускається автоматично одразу після готовності сторінки.
+    resizeCanvas();
+    startGame();
+  })();
+  </script>
+</body>
+</html>
